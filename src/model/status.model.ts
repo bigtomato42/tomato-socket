@@ -1,8 +1,8 @@
 export class Status {
-   public user: string;
+   public username: string;
    public info: string;
-    constructor(user: string, info: string) {
-        this.user = user;
+    constructor(username: string, info: string) {
+        this.username = username;
         this.info = info;
     }
 }

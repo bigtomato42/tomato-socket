@@ -44,41 +44,72 @@ export class ChatServer {
 
         this.io.on('connect', (socket: any) => {
             console.log('Connected client on port %s.', this.port);
+            let currentUsername;
+            let currentRoom;
+
+            socket.on('connected', (data) => {
+                currentUsername = data.user;
+                currentRoom = data.room;
+
+                socket.join(currentRoom, () => {
+                    // let rooms = Object.keys(socket.rooms);
+                    // console.log(rooms); // [ <socket.id>, 'room 237' ]
+                });
+
+                let updateStatus = this.stats.find(stat => stat.username === currentUsername);
+
+                if (updateStatus != null) {
+                    let index = this.stats.indexOf(updateStatus);
+                    this.stats[index] = { username: currentUsername, info: 'Online' };
+
+                    this.io.in(currentRoom).emit('status', this.stats[index]);
+                    console.log('a ' + currentRoom);
+                    console.log(this.stats[index]);
 
 
-            socket.on('connected', (user) => {
-
-                let updateItem = this.stats.find(stat => stat.user == user);
-
-                if (updateItem != null) {
-                    let index = this.stats.indexOf(updateItem);
-                    this.stats[index] = { user, info: 'Online' };
                 } else {
-                    this.stats.push({ user, info: 'Online' });
-                }
+                    updateStatus = { username: currentUsername, info: 'Online' };
+                    this.stats.push(updateStatus);
 
-                console.log(this.stats);
+                    this.io.in(currentRoom).emit('status', updateStatus);
+                    console.log('b ' + currentRoom);
+                    console.log(updateStatus);
+
+
+                }
+                // console.log(this.stats);
+
+
             });
 
-            socket.on('message', (m) => {
-                console.log('[server](message): %s', JSON.stringify(m));
+            socket.on('message', (data) => {
+                currentRoom = data.room;
+                console.log('[server](message): %s', JSON.stringify(data.message));
 
-                this.io.emit('message', m);
+                // this.io.to(room).emit('message', m);
+                this.io.in(currentRoom).emit('message', data.message);
+
             });
 
-            socket.on('disconnected', (user) => {
-                console.log('Client disconnected '+ user);
-                // this.stats = this.stats.filter(stat => stat.user == user)
-                let updateItem = this.stats.find(stat => stat.user == user);
+            socket.on('disconnected', () => {
+                console.log('Client disconnected ' + currentUsername);
+            });
 
-                if (updateItem != null) {
-                    let index = this.stats.indexOf(updateItem);
-                    this.stats[index] = { user, info: 'Offline' };
-                } else {
-                    this.stats.push({ user, info: 'Offline' });
+            socket.on('disconnect', () => {
+                console.log('Client disconnect ' + currentUsername);
+
+                let updateStatus = this.stats.find(stat => stat.username === currentUsername);
+
+                if (updateStatus != null) {
+                    let index = this.stats.indexOf(updateStatus);
+                    this.stats[index] = { username: currentUsername, info: 'Offline' };
+
+                    this.io.in(currentRoom).emit('status', this.stats[index]);
+                    console.log('dc ' + currentRoom);
+                    console.log(this.stats[index]);
+
                 }
-                console.log(this.stats);
-
+                // console.log(this.stats);
             });
         });
     }
