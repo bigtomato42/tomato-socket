@@ -2,12 +2,15 @@
   "name": "tomato-socket",
   "version": "1.0.0",
   "description": "",
+  "main": "dist/index.js",
   "scripts": {
     "build-ts": "tsc",
+    "postinstall": "gulp build",
     "start": "npm run serve",
     "serve": "node dist/index.js",
     "watch-node": "nodemon dist/index.js",
-    "watch-ts": "tsc -w"  },
+    "watch-ts": "tsc -w"
+  },
   "author": "",
   "license": "ISC",
   "dependencies": {
