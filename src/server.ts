@@ -4,7 +4,7 @@ import * as socketIo from 'socket.io';
 
 import { Status } from './model/status.model';
 
-export class ChatServer {
+export class TomatoSocketServer {
     public static readonly PORT: number = 8080;
     private app: express.Application;
     private server: Server;
@@ -30,7 +30,7 @@ export class ChatServer {
     }
 
     private config(): void {
-        this.port = process.env.PORT || ChatServer.PORT;
+        this.port = process.env.PORT || TomatoSocketServer.PORT;
     }
 
     private sockets(): void {

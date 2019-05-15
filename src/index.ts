@@ -1,4 +1,4 @@
-import { ChatServer } from './server';
+import { TomatoSocketServer } from './server';
 
-let app = new ChatServer().getApp();
+let app = new TomatoSocketServer().getApp();
 export { app };
