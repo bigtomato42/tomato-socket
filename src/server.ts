@@ -23,6 +23,12 @@ export class TomatoSocketServer {
 
     private createApp(): void {
         this.app = express();
+        this.app.get('/', function (req, res) {
+            res.send('GET request to the homepage')
+          })
+        this.app.use(function(req, res){
+            res.send("Invalid Endpoint. :/");
+        });
     }
 
     private createServer(): void {
