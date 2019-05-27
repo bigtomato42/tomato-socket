@@ -1,8 +1,9 @@
 import { createServer, Server } from 'http';
 import * as express from 'express';
 import * as socketIo from 'socket.io';
+import * as admin from 'firebase-admin';
 
-import { Status } from './model/status.model';
+import { Firestore } from '@google-cloud/firestore';
 
 export class TomatoSocketServer {
     public static readonly PORT: number = 8080;
@@ -11,11 +12,15 @@ export class TomatoSocketServer {
     private io: SocketIO.Server;
     private port: string | number;
 
-    private stats: Status[] = [];
+    private firebaseDB: Firestore;
+
+
+    // private stats: Status[] = [];
 
     constructor() {
         this.createApp();
         this.config();
+        this.connectFirebase()
         this.createServer();
         this.sockets();
         this.listen();
@@ -24,9 +29,9 @@ export class TomatoSocketServer {
     private createApp(): void {
         this.app = express();
         this.app.get('/', function (req, res) {
-            res.send('GET request to the homepage')
-          })
-        this.app.use(function(req, res){
+            res.send('GET request to the Tomato-Socket Homepage')
+        })
+        this.app.use(function (req, res) {
             res.send("Invalid Endpoint. :/");
         });
     }
@@ -37,6 +42,16 @@ export class TomatoSocketServer {
 
     private config(): void {
         this.port = process.env.PORT || TomatoSocketServer.PORT;
+    }
+
+    private connectFirebase(): void {
+        var serviceAccount = require("../service-account-file.json");
+
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+            databaseURL: "https://bigtomato42.firebaseio.com"
+        });
+        this.firebaseDB = admin.firestore()
     }
 
     private sockets(): void {
@@ -62,30 +77,39 @@ export class TomatoSocketServer {
                     // console.log(rooms); // [ <socket.id>, 'room 237' ]
                 });
 
-                let updateStatus = this.stats.find(stat => stat.username === currentUsername);
+                if (currentUsername && currentRoom) {
+                    var userRef = this.firebaseDB.collection(`${currentRoom}`)
+                        .doc(currentUsername)
+                        .set({ username: currentUsername, status: "Online" })
 
-                if (updateStatus != null) {
-                    let index = this.stats.indexOf(updateStatus);
-                    this.stats[index] = { username: currentUsername, info: 'Online' };
+                    this.io.in(currentRoom).emit('status', { username: currentUsername, status: "Online" });
 
-                    this.io.in(currentRoom).emit('status', this.stats[index]);
-                    console.log('a ' + currentRoom);
-                    console.log(this.stats[index]);
+                    var doc = this.firebaseDB.collection(`${currentRoom}`);
 
+                    var observer = doc.onSnapshot(docSnapshot => {
+                        // console.log(`Received doc snapshot: ${docSnapshot}`);
+                        let users = [];
+                        docSnapshot.forEach(doc => {
+                            users.push(doc.data())
+                        });
+                        socket.emit('users', users);
+                    }, err => {
+                        console.log(`Encountered error: ${err}`);
+                    });
+                    // var usersRef = this.firebaseDB.collection(`${currentRoom}`).get().then(snapshot => {
+                    //     snapshot.forEach(doc => {
+                    //         users.push(doc.data())
+                    //     });
+                    //     // socket.emit('users', users);
+                    //     console.log(users)
 
-                } else {
-                    updateStatus = { username: currentUsername, info: 'Online' };
-                    this.stats.push(updateStatus);
-
-                    this.io.in(currentRoom).emit('status', updateStatus);
-                    console.log('b ' + currentRoom);
-                    console.log(updateStatus);
+                    // })
+                    //     .catch(err => {
+                    //         console.log('Error getting documents', err);
+                    //     });
 
 
                 }
-                // console.log(this.stats);
-
-
             });
 
             socket.on('message', (data) => {
@@ -99,23 +123,20 @@ export class TomatoSocketServer {
 
             socket.on('disconnected', () => {
                 console.log('Client disconnected ' + currentUsername);
+
+                if (currentUsername && currentRoom) {
+                    this.firebaseDB.collection(`${currentRoom}`).doc(currentUsername).set({ username: currentUsername, status: "Offline" })
+                    this.io.in(currentRoom.t).emit('status', { username: currentUsername, status: "Offline" });
+                }
             });
 
             socket.on('disconnect', () => {
                 console.log('Client disconnect ' + currentUsername);
 
-                let updateStatus = this.stats.find(stat => stat.username === currentUsername);
-
-                if (updateStatus != null) {
-                    let index = this.stats.indexOf(updateStatus);
-                    this.stats[index] = { username: currentUsername, info: 'Offline' };
-
-                    this.io.in(currentRoom).emit('status', this.stats[index]);
-                    console.log('dc ' + currentRoom);
-                    console.log(this.stats[index]);
-
+                if (currentUsername && currentRoom) {
+                    this.firebaseDB.collection(`${currentRoom}`).doc(currentUsername).set({ username: currentUsername, status: "Offline" })
+                    this.io.in(currentRoom.t).emit('status', { username: currentUsername, status: "Offline" });
                 }
-                // console.log(this.stats);
             });
         });
     }
